@@ -1,95 +1,92 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
-  <title>救援場所の選択</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8">
+  <title>救援マップ</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
-    #map {
-      height: 80vh;
-      width: 100%;
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding: 20px;
     }
-    #sendBtn {
-      padding: 1em;
-      background: #00c300;
-      color: white;
-      border: none;
+    #map {
+      height: 300px;
       width: 100%;
-      font-size: 1.2em;
+      margin-top: 20px;
+    }
+    button {
+      padding: 12px 20px;
+      font-size: 18px;
+      margin-top: 20px;
     }
   </style>
-  <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY"></script>
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
+  <h2>救援位置を送信</h2>
+  <p>現在地を取得してGASに送信します</p>
   <div id="map"></div>
-  <button id="sendBtn">この場所を送信</button>
+  <button id="sendBtn">この位置で救援要請</button>
 
   <script>
-    let map;
-    let marker;
-    let selectedLatLng = null;
-    let userId = null;
+    let lat = null, lon = null;
 
-    function initMap(lat, lng) {
-      const initialPos = { lat, lng };
-      map = new google.maps.Map(document.getElementById('map'), {
-        center: initialPos,
-        zoom: 15
-      });
-      marker = new google.maps.Marker({
-        position: initialPos,
-        map: map,
-        draggable: true
-      });
-      selectedLatLng = initialPos;
-
-      marker.addListener('dragend', function (e) {
-        selectedLatLng = {
-          lat: e.latLng.lat(),
-          lng: e.latLng.lng()
-        };
-      });
-    }
-
-    function sendLocation() {
-      if (!selectedLatLng || !userId) return alert("位置情報が取得できていません");
-
-      fetch("YOUR_GAS_WEBAPP_URL", {
-        method: "POST",
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          lat: selectedLatLng.lat,
-          lng: selectedLatLng.lng,
-          userId: userId
-        })
-      })
-      .then(res => res.text())
-      .then(res => {
-        alert("位置情報を送信しました！");
-        liff.closeWindow();
-      });
-    }
-
-    async function main() {
-      await liff.init({ liffId: "YOUR_LIFF_ID" });
+    // LIFF初期化（Mini App用：liffId不要）
+    liff.init({}).then(() => {
       if (!liff.isLoggedIn()) {
         liff.login();
       } else {
-        const profile = await liff.getProfile();
-        userId = profile.userId;
-
         navigator.geolocation.getCurrentPosition(pos => {
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
-          initMap(lat, lng);
-        }, () => {
-          alert("位置情報が取得できませんでした");
+          lat = pos.coords.latitude;
+          lon = pos.coords.longitude;
+          showMap(lat, lon);
+        }, err => {
+          alert("位置情報が取得できません: " + err.message);
         });
       }
-    }
+    }).catch(console.error);
 
-    document.getElementById("sendBtn").addEventListener("click", sendLocation);
-    main();
+    document.getElementById("sendBtn").onclick = function () {
+      if (!lat || !lon) {
+        alert("位置情報を取得できていません");
+        return;
+      }
+
+      liff.getProfile().then(profile => {
+        const payload = {
+          userId: profile.userId,
+          displayName: profile.displayName,
+          latitude: lat,
+          longitude: lon
+        };
+
+        fetch("https://script.google.com/macros/s/XXXXXXXXXXXXXXXXXXXX/exec", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        })
+        .then(res => {
+          if (res.ok) {
+            alert("救援要請を送信しました！");
+            liff.closeWindow();
+          } else {
+            alert("送信に失敗しました");
+          }
+        });
+      });
+    };
+
+    // Google Maps埋め込み（static）
+    function showMap(lat, lon) {
+      const mapFrame = document.createElement("iframe");
+      mapFrame.src = `https://maps.google.com/maps?q=${lat},${lon}&z=15&output=embed`;
+      mapFrame.width = "100%";
+      mapFrame.height = "300";
+      mapFrame.style.border = 0;
+      document.getElementById("map").appendChild(mapFrame);
+    }
   </script>
 </body>
 </html>
