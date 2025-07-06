@@ -27,46 +27,37 @@
   <div id="map"></div>
   <button id="sendBtn" disabled>この位置で救援要請</button>
 
-  <script>
-    let lat = null;
-    let lon = null;
-    let userId = null;
+ <script>
+  async function main() {
+    await liff.init({});
 
-    async function main() {
-      await liff.init({});
-      if (!liff.isLoggedIn()) {
-        liff.login();
-      } else {
-        userId = (await liff.getProfile()).userId;
-
-        navigator.geolocation.getCurrentPosition(
-          pos => {
-            lat = pos.coords.latitude;
-            lon = pos.coords.longitude;
-
-            // Googleマップリンク表示
-            const mapDiv = document.getElementById("map");
-            const link = document.createElement("a");
-            link.href = `https://maps.google.com/?q=${lat},${lon}`;
-            link.innerText = "現在地をGoogleマップで開く";
-            link.target = "_blank";
-            mapDiv.appendChild(link);
-
-            // ボタン有効化
-            document.getElementById("sendBtn").disabled = false;
-          },
-          err => {
-            alert("位置情報取得エラー: " + err.message);
-          }
-        );
-      }
+    if (!liff.isLoggedIn()) {
+      liff.login();
+      return;
     }
 
-    document.getElementById("sendBtn").addEventListener("click", () => {
-      if (!lat || !lon) {
-        alert("位置情報が取得できていません");
-        return;
+    userId = (await liff.getProfile()).userId;
+
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        alert(`緯度: ${pos.coords.latitude}\n経度: ${pos.coords.longitude}`);
+
+        lat = pos.coords.latitude;
+        lon = pos.coords.longitude;
+
+        const mapDiv = document.getElementById("map");
+        const link = document.createElement("a");
+        link.href = `https://maps.google.com/?q=${lat},${lon}`;
+        link.innerText = "現在地をGoogleマップで開く";
+        link.target = "_blank";
+        mapDiv.appendChild(link);
+
+        document.getElementById("sendBtn").disabled = false;
+      },
+      err => {
+        alert("位置情報取得エラー: " + err.message);
       }
+    );
 
       const payload = {
         userId: userId,
